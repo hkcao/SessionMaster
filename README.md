@@ -1,5 +1,7 @@
 # SessionMaster
 
+**English** | [简体中文](README.zh-CN.md)
+
 **A local-first web workspace for all your AI coding sessions.**
 
 SessionMaster brings Codex and Claude Code into one calm, searchable interface without replacing either CLI. It discovers native session history, shows structured conversations and tool activity, and lets you start, resume, continue, or stop managed sessions from the browser.
