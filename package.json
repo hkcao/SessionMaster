@@ -1,0 +1,21 @@
+{
+  "name": "session-master",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.16.0",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "build": "pnpm -r build",
+    "dev": "pnpm --filter @session-master/core build && pnpm --filter @session-master/adapter-codex build && pnpm --filter @session-master/adapter-claude build && pnpm --parallel --filter @session-master/server --filter @session-master/web dev",
+    "test": "pnpm -r test",
+    "typecheck": "pnpm -r typecheck",
+    "start": "pnpm --filter @session-master/server start"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "vitest": "^3.2.0"
+  }
+}

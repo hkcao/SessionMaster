@@ -1,0 +1,20 @@
+{
+  "name": "@session-master/server",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@fastify/static": "^8.2.0",
+    "@fastify/websocket": "^11.2.0",
+    "@session-master/adapter-claude": "workspace:*",
+    "@session-master/adapter-codex": "workspace:*",
+    "@session-master/core": "workspace:*",
+    "fastify": "^5.5.0"
+  }
+}
