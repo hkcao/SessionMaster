@@ -25,7 +25,7 @@ export class SessionService {
     }));
     const discovered = groups.flat();
     const byId = new Map(discovered.map((session) => [session.id, session]));
-    for (const session of this.#ephemeral.values()) if (!byId.has(session.id)) byId.set(session.id, session);
+    for (const session of this.#ephemeral.values()) byId.set(session.id, { ...byId.get(session.id), ...session });
     this.#sessions = [...byId.values()].sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""));
     this.#store.upsertSessions(this.#sessions);
     for (const session of this.#sessions) this.#subscribe(session);
@@ -70,7 +70,7 @@ export class SessionService {
   }
 
   async resume(id: string, prompt?: string): Promise<Runtime> {
-    const adapter = this.#registry.get(id.split(":", 1)[0] as BackendId); const runtime = await adapter.resume(id, prompt ? { prompt } : {}); this.#runtimeAdapters.set(runtime.id, adapter); const session = await this.get(id); this.#ephemeral.set(id, { ...session, runtimeId: runtime.id, status: prompt ? "running" : "waiting_input" }); this.#subscribe(session); return runtime;
+    const adapter = this.#registry.get(id.split(":", 1)[0] as BackendId); const runtime = await adapter.resume(id, prompt ? { prompt } : {}); this.#runtimeAdapters.set(runtime.id, adapter); const session = await this.get(id); const resumed = { ...session, runtimeId: runtime.id, status: prompt ? "running" as const : "waiting_input" as const, updatedAt: new Date().toISOString() }; this.#ephemeral.set(id, resumed); this.#sessions = this.#sessions.map((item) => item.id === id ? resumed : item); this.#store.upsertSessions([resumed]); this.#subscribe(resumed); return runtime;
   }
 
   async message(id: string, message: string): Promise<void> { const session = await this.get(id); if (!session.runtimeId) throw new Error("Session has no managed runtime; resume it first"); const adapter = this.#runtimeAdapters.get(session.runtimeId); if (!adapter) throw new Error("Runtime is not managed by SessionMaster"); await adapter.sendMessage(session.runtimeId, message); }

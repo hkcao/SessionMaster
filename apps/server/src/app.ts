@@ -1,5 +1,6 @@
-import { existsSync, statSync } from "node:fs";
-import { resolve } from "node:path";
+import { createReadStream, existsSync, realpathSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { extname, isAbsolute, relative, sep } from "node:path";
 import Fastify, { type FastifyInstance } from "fastify";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
@@ -30,8 +31,18 @@ export async function buildApp(service: SessionService, webRoot?: string): Promi
   app.post<{ Params: IdParams; Body: ApprovalBody }>("/api/permissions/:id/approve", async (request) => { await service.approve(request.params.id, request.body?.option); return { ok: true }; });
   app.post<{ Params: IdParams }>("/api/permissions/:id/reject", async (request) => { await service.reject(request.params.id); return { ok: true }; });
   app.post<{ Params: IdParams }>("/api/runtime/:id/stop", async (request) => { await service.stop(request.params.id); return { ok: true }; });
+  app.get<{ Querystring: { path?: string; sessionId?: string } }>("/api/files", async (request, reply) => {
+    const { path = "", sessionId = "" } = request.query; const type = IMAGE_TYPES[extname(path).toLowerCase()];
+    if (!sessionId || !type) return reply.code(404).send({ error: "Not found" });
+    try {
+      const session = await service.get(sessionId); const source = allowedImagePath(path, [session.cwd, tmpdir()].filter((root): root is string => Boolean(root)));
+      if (!source) return reply.code(404).send({ error: "Not found" });
+      reply.headers({ "cache-control": "private, max-age=60", "content-security-policy": "sandbox", "cross-origin-resource-policy": "same-origin", "x-content-type-options": "nosniff" }); return reply.type(type).send(createReadStream(source));
+    } catch { return reply.code(404).send({ error: "Not found" }); }
+  });
   app.get("/ws", { websocket: true }, (socket) => { const unsubscribe = service.onEvent((event) => { if (socket.readyState === 1) socket.send(JSON.stringify(event)); }); socket.on("close", unsubscribe); });
-  if (webRoot && existsSync(webRoot)) { await app.register(fastifyStatic, { root: webRoot, wildcard: false }); app.get("/*", async (_request, reply) => reply.sendFile("index.html")); }
+  app.get("/api/*", async (_request, reply) => reply.code(404).send({ error: "Not found" }));
+  if (webRoot && existsSync(webRoot)) { await app.register(fastifyStatic, { root: webRoot, wildcard: false, setHeaders: (res, path) => { if (path.endsWith("index.html")) res.setHeader("cache-control", "no-cache"); } }); app.get("/*", async (_request, reply) => reply.header("cache-control", "no-cache").sendFile("index.html")); }
   app.setErrorHandler((error: unknown, _request, reply) => {
     const value = error as { statusCode?: number; message?: string };
     return reply.code(value.statusCode && value.statusCode >= 400 ? value.statusCode : 400).send({ error: value.message ?? String(error) });
@@ -39,4 +50,14 @@ export async function buildApp(service: SessionService, webRoot?: string): Promi
   return app;
 }
 
-function validateDirectory(path: string): void { if (!path || !resolve(path).startsWith("/") || !existsSync(path) || !statSync(path).isDirectory()) throw new Error("cwd must be an existing absolute directory"); }
+function validateDirectory(path: string): void { if (!path || !isAbsolute(path) || !existsSync(path) || !statSync(path).isDirectory()) throw new Error("cwd must be an existing absolute directory"); }
+
+function allowedImagePath(path: string, roots: string[]): string | undefined {
+  if (!isAbsolute(path)) return undefined;
+  try {
+    const source = realpathSync(path); if (!statSync(source).isFile()) return undefined;
+    return roots.some((root) => { const fromRoot = relative(realpathSync(root), source); return fromRoot === "" || (fromRoot !== ".." && !fromRoot.startsWith(`..${sep}`) && !isAbsolute(fromRoot)); }) ? source : undefined;
+  } catch { return undefined; }
+}
+
+const IMAGE_TYPES: Record<string, string> = { ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".gif": "image/gif", ".webp": "image/webp", ".svg": "image/svg+xml" };

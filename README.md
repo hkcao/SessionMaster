@@ -37,9 +37,17 @@ SessionMaster is not a new coding agent, an IDE, or a proxy that hides which bac
 ### Structured conversation view
 
 - Renders user and assistant messages as readable conversation blocks.
+- Switches between Markdown rendering and the exact raw message text.
+- Renders common Markdown formatting and local image references without injecting untrusted HTML. Local images are limited to the session workspace or temporary directory.
 - Displays commands, terminal output, reasoning, tool calls, tool results, and errors.
 - Keeps long JSON, logs, and command output contained within the conversation layout.
-- Streams managed runtime updates to the UI over WebSocket.
+- Streams managed runtime updates to the UI over WebSocket and coalesces incremental text and terminal chunks into readable entries.
+
+### Interface preferences
+
+- Offers neutral and light blue-gray themes directly in the sidebar.
+- Remembers the selected theme and message rendering mode in the local browser.
+- Keeps all preferences local; no account or hosted settings service is involved.
 
 ### Managed runtime control
 
@@ -126,6 +134,7 @@ See [docs/architecture.md](docs/architecture.md) for the domain model and protoc
 - The server listens on localhost by default.
 - Permission requests are never auto-approved.
 - Authentication files, environment variables, API keys, and tokens are not indexed.
+- Local conversation images are served only when they belong to the selected session workspace or the system temporary directory.
 - Only runtimes launched or resumed through SessionMaster can be controlled. Arbitrary existing terminal processes are deliberately not attached.
 
 ## Validation
@@ -136,7 +145,7 @@ pnpm typecheck
 pnpm build
 ```
 
-The test suite covers core registry behavior, adapter normalization, session discovery and filtering, immediate runtime visibility, confirmed-stop state cleanup, idempotent repeated stops, and preservation of running state when backend termination fails.
+The test suite covers core registry behavior, adapter normalization, session discovery and filtering, resumed-runtime state preservation, confirmed-stop state cleanup, HTTP path and file-serving boundaries, live event coalescing, and unsafe Markdown link handling.
 
 ## Current limitations
 
